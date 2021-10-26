@@ -2,16 +2,21 @@
 
 var svgContainer = d3.select(".background")
     .append("svg")
-    .attr("width", "100%")
-    .attr("height", "100%")
+    .attrs({
+        width: "100%",
+        height: "100%",
+        position: "relative"
+    })
 
 var platform = svgContainer.append("rect")
-    .attr("width", "100%")
-    .attr("height", "10%")
-    .attr("fill", 'orangered')
-    .attr("position", "absolute")
-    .attr("bottom", 100)
-    .attr("left", 0)
+    .attrs({
+        width: "100%",
+        height: "15%",
+        fill: "orangered",
+        position: "absolute",
+        top: "500px",
+        left: "500px"
+    })
 
 
 /*
