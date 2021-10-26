@@ -9,13 +9,11 @@ html, body {
   margin:  0;
   background: #080808; /*Vampire Black*/
   position: relative;
-  z-index:  1;
 }
 
 h1 {
   color: whitesmoke;
   position: absolute;
   left: 15px;
-  z-index: 2;
 }
 

@@ -1,11 +1,20 @@
+
+
 var svgContainer = d3.select(".background")
     .append("svg")
 
-console.log(svgContainer)
+var platform = svgContainer.append("rect")
+    .attr("width", 10000)
+    .attr("height", 100)
+    .attr("fill", 'orangered')
+    .attr("position", "absolute")
+    .attr("bottom", 0)
+    .attr("left", 0)
 
-var rectangle = svgContainer.append("rect")
-      .attr("x", 150)
-      .attr("y", 50)
-      .attr("width", 50)
-      .attr("height", 140)
-      .attr("color", "red");
+
+/*
+    .attrs({ 
+        width: 100%, 
+        height: 10, 
+        fill: 'orangered' 
+    })*/
