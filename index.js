@@ -32,6 +32,8 @@ var available_width = window.innerWidth,
     top_y_barrier = circle_radius,
     bottom_y_barrier = base_platform_y - circle_radius;
 
+    testing = false;
+
 var background_svg = d3.select(".background")
     .append("svg")
     .attrs({
@@ -49,14 +51,15 @@ var base_platform = background_svg.append("rect")
         x: base_platform_x
     })
 
-
-var dot = background_svg.append("circle")
-    .attrs({
-        r: "5px",
-        fill: "red",
-        cy: bottom_of_small_platform_y + circle_radius,
-        cx: small_platform_right_x
-    })
+if (testing){
+    var dot = background_svg.append("circle")
+        .attrs({
+            r: "5px",
+            fill: "red",
+            cy: bottom_of_small_platform_y + circle_radius,
+            cx: small_platform_right_x
+        })
+}
 
 
 
@@ -202,19 +205,27 @@ function y_in_range_of_small_platform(potential_y) {
 function is_on_small_platform(potential_x, potential_y) {
     // testing for range because browser lags sometime
     return ((potential_y <= small_platform_y - circle_radius + 10)&&
-            (potential_y >= small_platform_y - circle_radius - 10)
-            && x_in_range_of_small_platform(potential_x));
+            (potential_y >= small_platform_y - circle_radius - 10)&&
+            x_in_range_of_small_platform(potential_x));
 }
 
 function hit_bottom_of_small_platform(potential_x, potential_y) {
     // testing for range because browser lags sometime
     return ((potential_y >= bottom_of_small_platform_y + circle_radius - 25)&&
-            (potential_y <= bottom_of_small_platform_y + circle_radius + 25)
-            && x_in_range_of_small_platform(potential_x));
+            (potential_y <= bottom_of_small_platform_y + circle_radius + 25)&&
+            x_in_range_of_small_platform(potential_x));
 }
 
 function hit_right_of_small_platform(potential_x, potential_y) {
-    return true
+    return ((potential_x <= small_platform_right_x + circle_radius + 50)&&
+            (potential_x >= small_platform_right_x + circle_radius - 50)&&
+            y_in_range_of_small_platform(potential_y))
+}
+
+function hit_left_of_small_platform(potential_x, potential_y) {
+    return ((potential_x <= small_platform_x - circle_radius + 50)&&
+            (potential_x >= small_platform_x - circle_radius - 50)&&
+            y_in_range_of_small_platform(potential_y))
 }
 
 function jump_up_and_down() {
@@ -224,10 +235,20 @@ function jump_up_and_down() {
     if (vertical_velocity < 0) {
         // if we hit the top of the screen
         if (y + vertical_velocity <= top_y_barrier){
+
+            if (testing) {
+                console.log("hit top of screen")
+            }
+            
             y = top_y_barrier;
             vertical_velocity = vertical_velocity * -1 * velocity_loss;
         // if we hit the bottom of the small platform
         } else if (hit_bottom_of_small_platform(x, y+vertical_velocity)){
+
+            if (testing) {
+                console.log("hit bottom of small platform")
+            }
+
             y = bottom_of_small_platform_y + circle_radius
             vertical_velocity = vertical_velocity * -1 * velocity_loss;
         } else  {
@@ -238,6 +259,11 @@ function jump_up_and_down() {
     else{
         // if we hit the top of the base platform
         if (is_on_base_platform(y+vertical_velocity)) {
+
+            if (testing) {
+                console.log("hit top of base platform")
+            }
+
             y = bottom_y_barrier;
             if (!bounce_flag){
                 vertical_velocity = vertical_velocity * -1 * velocity_loss;
@@ -251,6 +277,11 @@ function jump_up_and_down() {
             }
             
         } else if (is_on_small_platform(x, y+vertical_velocity)) {
+
+            if (testing) {
+                console.log("hit top of small platform")
+            }
+
             y = small_platform_y - circle_radius
             if (!bounce_flag){
                 vertical_velocity = vertical_velocity * -1 * velocity_loss;
@@ -289,16 +320,35 @@ function move_horizontal() {
     if (horizontal_velocity < 0) {
         // if hitting left side of screen
         if (x + horizontal_velocity <= left_x_barrier){
-            x = left_x_barrier;
+
+            if (testing) {
+                console.log("hit left of screen")
+            }
+
             // going opposite direction now
+            x = left_x_barrier;
             horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+
         // if hitting right of small platform
-        } else if ((x + horizontal_velocity <= small_platform_right_x + circle_radius)&&
-            ((y >= small_platform_y)&&(y <= bottom_of_small_platform_y))){
+        } else if (hit_right_of_small_platform(x+horizontal_velocity, y)){
+
+            if (testing) {
+                console.log("hit right of small platform")
+            }
+
             x = small_platform_right_x + circle_radius;
+            horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+
         // rolling off the left
-        } else if ((y == small_platform_y - circle_radius) &&
-                  (x <= small_platform_x)){
+        } else if (!is_on_small_platform(x+horizontal_velocity, y)&&
+                    is_on_small_platform(x,y)){
+
+            if (testing) {
+                console.log("rolling off small platform on left")
+            }
+
+            x = x + horizontal_velocity
+            vertical_velocity = -0.1
             jump_up_and_down();
         }   
         else {
@@ -306,16 +356,37 @@ function move_horizontal() {
         }
         
     }
-    // movin right
+    // moving right
     else{
         // if hitting right side of screen
         if (x + horizontal_velocity >= right_x_barrier){
+
+            if (testing) {
+                console.log("hit right of screen")
+            }
+
             x = right_x_barrier;
             horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+
         // if hitting left of small platform
-        } else if ((x + horizontal_velocity >= small_platform_x)&&
-            ((y >= small_platform_y)&&(y <= bottom_of_small_platform_y))){
-            x = small_platform_x;
+        } else if (hit_left_of_small_platform(x+horizontal_velocity, y)){
+
+            if (testing) {
+                console.log("hit left of small platform")
+            }
+
+            x = small_platform_x - circle_radius;
+            horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+        } else if (!is_on_small_platform(x+horizontal_velocity, y)&&
+                    is_on_small_platform(x,y)){
+
+            if (testing) {
+                console.log("rolling off small platform on right")
+            }
+
+            x = x + horizontal_velocity
+            vertical_velocity = -0.1
+            jump_up_and_down();
         } else {
             x = x + horizontal_velocity;
         }
