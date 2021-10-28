@@ -25,7 +25,7 @@ var available_width = window.innerWidth,
 
     // calculating params for circle
     circle_radius = available_height * 0.05,
-    circle_starting_x = available_width/2 - circle_radius/2,
+    circle_starting_x = available_width/2,
     circle_starting_y = base_platform_y - circle_radius,
     right_x_barrier = available_width - circle_radius,
     left_x_barrier = circle_radius,
@@ -54,7 +54,7 @@ var dot = background_svg.append("circle")
     .attrs({
         r: "5px",
         fill: "red",
-        cy: top_y_barrier,
+        cy: bottom_of_small_platform_y + circle_radius,
         cx: small_platform_right_x
     })
 
@@ -84,14 +84,23 @@ $(function() {
     var y = circle_starting_y;
 
     // variables to keep track of horizontal velocity + acceleration
-    var horizontal_acceleration = 1.25;
-    var horizontal_velocity = 3;
+    var init_horizontal_acceleration = 1;
+    var horizontal_acceleration = 0.01;
+    var cur_horizontal_acceleration = init_horizontal_acceleration;
+    var init_horizontal_velocity_right = 2;
+    var init_horizontal_velocity_left = -2;
+    var horizontal_velocity = 0; // starting velocity
+    var friction = 0.25;
 
     // variables to keep track of vertical velocity + acceleration
     var jump_counter = 0;
-    var gravity = 0.005;
+    var gravity = 0.05;
     var vertical_velocity = 0;
+    var init_vertical_velocity = -4;
     var jump_time = 0;
+
+    var velocity_loss = 0.75;
+    var bounce_flag = false;
 
     // bools to check if key has been pressed
     var leftPressed = false;
@@ -101,22 +110,30 @@ $(function() {
     // keep looping while screen is active
     setInterval(function(){
 
-        if(spacePressed || jump_time > 0){
+        if((spacePressed || jump_time > 0)&&!bounce_flag){
             if(jump_counter == 1){
                 jump_time = 0;
-                vertical_velocity = -2.25;
+                vertical_velocity = init_vertical_velocity;
             }
             jump_time += 0.1;
-            jump_up();
+            jump_up_and_down();
+        // for bouncing
+        } else if (Math.abs(vertical_velocity) > 0) {
+            jump_time += 0.1;
+            jump_up_and_down();   
         }
 
         if(leftPressed){
-            move_left();
+            move_horizontal();
         } else if (rightPressed) {
-            move_right();
+            move_horizontal();
         } else if (horizontal_velocity > 0){
-
-        }
+            horizontal_velocity = Math.max(horizontal_velocity - friction, 0);
+            move_horizontal();
+        } else if (horizontal_velocity < 0){
+            horizontal_velocity = Math.min(horizontal_velocity + friction, 0);
+            move_horizontal();
+        } 
     },.01)
 
 // check for key presses
@@ -129,11 +146,17 @@ $(document).keydown(function(e) {
                 break;
             case 37: // left arrow key
                 leftPressed = true;
-                horizontal_acceleration *= horizontal_acceleration
+                horizontal_velocity = init_horizontal_velocity_left;
+                cur_horizontal_acceleration += horizontal_acceleration;
+                spacePressed = false;
+                jump_counter = 0;
                 break;
             case 39: // right arrow key
                 rightPressed = true;
-                horizontal_acceleration *= horizontal_acceleration
+                horizontal_velocity = init_horizontal_velocity_right;
+                cur_horizontal_acceleration += horizontal_acceleration;
+                spacePressed = false;
+                jump_counter = 0;
                 break;
             default:
                 return;
@@ -150,11 +173,11 @@ $(document).keyup(function(e) {
                 break;
             case 37: // left arrow key
                 leftPressed = false;
-                horizontal_acceleration = 1
+                cur_horizontal_acceleration = init_horizontal_acceleration
                 break;
             case 39: // right arrow key
                 rightPressed = false;
-                horizontal_acceleration = 1
+                cur_horizontal_acceleration = init_horizontal_acceleration
                 break;
             default:
                 return;
@@ -162,45 +185,142 @@ $(document).keyup(function(e) {
         e.preventDefault();
     });
 
-function jump_up() {
+function is_on_base_platform(potential_y) {
+    return potential_y >= bottom_y_barrier;
+}
+
+function x_in_range_of_small_platform(potential_x) {
+    return ((potential_x < small_platform_right_x + circle_radius)&&
+            (potential_x > small_platform_x - circle_radius));
+}
+
+function y_in_range_of_small_platform(potential_y) {
+    return ((potential_y < bottom_of_small_platform_y + circle_radius)&&
+            (potential_y > bottom_of_small_platform_y - circle_radius));
+}
+
+function is_on_small_platform(potential_x, potential_y) {
+    // testing for range because browser lags sometime
+    return ((potential_y <= small_platform_y - circle_radius + 10)&&
+            (potential_y >= small_platform_y - circle_radius - 10)
+            && x_in_range_of_small_platform(potential_x));
+}
+
+function hit_bottom_of_small_platform(potential_x, potential_y) {
+    // testing for range because browser lags sometime
+    return ((potential_y >= bottom_of_small_platform_y + circle_radius - 25)&&
+            (potential_y <= bottom_of_small_platform_y + circle_radius + 25)
+            && x_in_range_of_small_platform(potential_x));
+}
+
+function hit_right_of_small_platform(potential_x, potential_y) {
+    return true
+}
+
+function jump_up_and_down() {
     vertical_velocity += gravity * jump_time
-    console.log(vertical_velocity)
 
     // on the way up
     if (vertical_velocity < 0) {
-        // if we hit the ceiling or the underside of the small platform
-        y = Math.max(top_y_barrier, y + vertical_velocity*jump_time)
+        // if we hit the top of the screen
+        if (y + vertical_velocity <= top_y_barrier){
+            y = top_y_barrier;
+            vertical_velocity = vertical_velocity * -1 * velocity_loss;
+        // if we hit the bottom of the small platform
+        } else if (hit_bottom_of_small_platform(x, y+vertical_velocity)){
+            y = bottom_of_small_platform_y + circle_radius
+            vertical_velocity = vertical_velocity * -1 * velocity_loss;
+        } else  {
+            y += vertical_velocity
+        }
     }
     // on the way down
     else{
-        // if we hit the top of bottom platform or small platform
-        
-        if ((y >= bottom_y_barrier)||
-            ((y >= small_platform_y - circle_radius)&&((x <= small_platform_right_x)&&(x >= small_platform_x)))){
-            vertical_velocity = 0;
-            jump_time = 0;
+        // if we hit the top of the base platform
+        if (is_on_base_platform(y+vertical_velocity)) {
+            y = bottom_y_barrier;
+            if (!bounce_flag){
+                vertical_velocity = vertical_velocity * -1 * velocity_loss;
+                bounce_flag = true;
+            } else if (vertical_velocity > 3){
+                vertical_velocity = vertical_velocity * -1 * velocity_loss;
+            } else {
+                jump_time = 0;
+                bounce_flag = false;
+                vertical_velocity = 0;
+            }
+            
+        } else if (is_on_small_platform(x, y+vertical_velocity)) {
+            y = small_platform_y - circle_radius
+            if (!bounce_flag){
+                vertical_velocity = vertical_velocity * -1 * velocity_loss;
+                bounce_flag = true;
+            } else if (vertical_velocity > 3){
+                vertical_velocity = vertical_velocity * -1 * velocity_loss;
+            } else {
+                jump_time = 0;
+                bounce_flag = false;
+                vertical_velocity = 0;
+            }
+        } else {
+            y += vertical_velocity
         }
-        y = Math.min(bottom_y_barrier, y + vertical_velocity*jump_time)
-    }
 
+    }
+    
+    // change y coordinate of circle
     circle.attrs({
       cy: y
     });
-
 }
 
-function move_left() {
+function move_horizontal() {
 
-    // ensure ball doesn't go out of bound on the left
-    // account for acceleration if circle is on a platform
-    x = Math.max(x - horizontal_velocity * horizontal_acceleration, left_x_barrier);
-    circle.attrs({
-      cx: x
-    });
-  }
+    // only add acceleration if ball is on a platform
+    // ball on base platform
+    if (is_on_base_platform(y)||
+        // ball on small platform
+        (is_on_small_platform(x, y))){
+        // add acceleration
+        horizontal_velocity *= cur_horizontal_acceleration;
+    }
+    
+    // moving left
+    if (horizontal_velocity < 0) {
+        // if hitting left side of screen
+        if (x + horizontal_velocity <= left_x_barrier){
+            x = left_x_barrier;
+            // going opposite direction now
+            horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+        // if hitting right of small platform
+        } else if ((x + horizontal_velocity <= small_platform_right_x + circle_radius)&&
+            ((y >= small_platform_y)&&(y <= bottom_of_small_platform_y))){
+            x = small_platform_right_x + circle_radius;
+        // rolling off the left
+        } else if ((y == small_platform_y - circle_radius) &&
+                  (x <= small_platform_x)){
+            jump_up_and_down();
+        }   
+        else {
+            x = x + horizontal_velocity;
+        }
+        
+    }
+    // movin right
+    else{
+        // if hitting right side of screen
+        if (x + horizontal_velocity >= right_x_barrier){
+            x = right_x_barrier;
+            horizontal_velocity = horizontal_velocity * -1 * velocity_loss;
+        // if hitting left of small platform
+        } else if ((x + horizontal_velocity >= small_platform_x)&&
+            ((y >= small_platform_y)&&(y <= bottom_of_small_platform_y))){
+            x = small_platform_x;
+        } else {
+            x = x + horizontal_velocity;
+        }
+    }
 
-function move_right() {
-    x = Math.min(x + horizontal_velocity * horizontal_acceleration, right_x_barrier);
     circle.attrs({
       cx: x
     });
